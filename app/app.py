@@ -4,9 +4,7 @@ import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 
-# =====================================================
 # PAGE CONFIGURATION
-# =====================================================
 
 st.set_page_config(
     page_title="Stock Market Trend Prediction",
@@ -14,9 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# =====================================================
 # LOAD MODEL
-# =====================================================
 
 try:
     rf_model = joblib.load('models/model.pkl')
@@ -25,9 +21,7 @@ except Exception as e:
     st.error(f"Error loading model: {e}")
     st.stop()
 
-# =====================================================
 # CUSTOM CSS
-# =====================================================
 
 st.markdown("""
 <style>
@@ -62,9 +56,7 @@ h1, h2, h3, h4 {
 </style>
 """, unsafe_allow_html=True)
 
-# =====================================================
 # TITLE
-# =====================================================
 
 st.title("📈 Stock Market Trend Signal Prediction")
 
@@ -77,9 +69,7 @@ This Machine Learning application predicts whether the stock market trend is:
 using technical indicators and Machine Learning models.
 """)
 
-# =====================================================
 # SIDEBAR INPUTS
-# =====================================================
 
 st.sidebar.header("📊 Input Stock Features")
 
@@ -150,9 +140,7 @@ macd = st.sidebar.number_input(
     format="%.4f"
 )
 
-# =====================================================
 # CREATE INPUT DATAFRAME
-# =====================================================
 
 input_data = pd.DataFrame({
     'Open': [open_price],
@@ -168,9 +156,7 @@ input_data = pd.DataFrame({
     'MACD': [macd]
 })
 
-# =====================================================
 # PREDICTION BUTTON
-# =====================================================
 
 if st.button("🚀 Predict Market Trend"):
 
@@ -178,9 +164,7 @@ if st.button("🚀 Predict Market Trend"):
 
         prediction = rf_model.predict(input_data)[0]
 
-        # =================================================
         # PREDICTION RESULT
-        # =================================================
 
         st.subheader("📌 Prediction Result")
 
@@ -206,17 +190,13 @@ if st.button("🚀 Predict Market Trend"):
             </div>
             """, unsafe_allow_html=True)
 
-        # =================================================
         # INPUT DATA DISPLAY
-        # =================================================
 
         st.subheader("📋 Input Feature Values")
 
         st.dataframe(input_data)
 
-        # =================================================
         # FEATURE IMPORTANCE GRAPH
-        # =================================================
 
         st.subheader("📊 Feature Importance")
 
@@ -248,9 +228,7 @@ if st.button("🚀 Predict Market Trend"):
 
         st.pyplot(fig)
 
-        # =================================================
         # RSI VISUALIZATION
-        # =================================================
 
         st.subheader("📈 RSI Indicator")
 
@@ -264,9 +242,7 @@ if st.button("🚀 Predict Market Trend"):
 
         st.pyplot(fig2)
 
-        # =================================================
         # MACD VISUALIZATION
-        # =================================================
 
         st.subheader("📉 MACD Indicator")
 
@@ -278,9 +254,7 @@ if st.button("🚀 Predict Market Trend"):
 
         st.pyplot(fig3)
 
-        # =================================================
         # MARKET INSIGHTS
-        # =================================================
 
         st.subheader("🧠 Market Insights")
 
