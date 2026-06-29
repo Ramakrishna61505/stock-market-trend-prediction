@@ -1,10 +1,19 @@
+# Core Data Science & ML
 pandas
 numpy
-matplotlib
-seaborn
 scikit-learn
 xgboost
-streamlit
+
+# Data Fetching
 yfinance
+
+# Frontend & Visualization
+streamlit
+plotly
+matplotlib
+seaborn
+
+# Utilities
 joblib
 notebook
+nbformat
