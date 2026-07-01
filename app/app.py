@@ -4,7 +4,9 @@ import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # PAGE CONFIGURATION
 st.set_page_config(
@@ -14,51 +16,119 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CUSTOM CSS: LIQUID GLASS THEME
+# CUSTOM CSS: FUTURISTIC NEON TERMINAL THEME
 st.markdown("""
 <style>
-/* Base / Common CSS - Let Streamlit handle the background natively */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Outfit', sans-serif !important;
+}
+
+/* Deep space background */
 .stApp {
-    background: transparent;
+    background: radial-gradient(circle at 50% 0%, #1a0b2e 0%, #05010d 60%, #000000 100%) !important;
 }
+
+/* Futuristic Glass Card */
 .glass-card {
-    background: var(--secondary-background-color);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--primary-color);
-    border-radius: 16px;
+    background: rgba(15, 12, 29, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 243, 255, 0.15);
+    border-radius: 12px;
     padding: 24px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 0 15px rgba(0, 243, 255, 0.05);
     margin-bottom: 20px;
-    transition: all 0.3s ease-in-out;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
 }
+
+.glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    transform: skewX(-20deg);
+    transition: all 0.5s ease;
+}
+
+.glass-card:hover::before {
+    left: 150%;
+}
+
 .glass-card:hover {
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    border: 1px solid var(--text-color);
-    opacity: 0.95;
+    box-shadow: 0 12px 40px rgba(0, 243, 255, 0.2), inset 0 0 20px rgba(157, 78, 221, 0.1);
+    border: 1px solid rgba(0, 243, 255, 0.4);
+    transform: translateY(-5px);
 }
+
 .glass-card h1, .glass-card h2, .glass-card h3, .glass-card p {
-    color: var(--text-color) !important;
+    color: #e0e6ed !important;
 }
+
+.glass-card h3 {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 1.1rem;
+    color: #00f3ff !important;
+    border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+}
+
 .glass-card p.synthesis-text {
-    color: #10b981 !important; /* Vibrant emerald/light green */
-    font-weight: 600;
-    text-shadow: 0px 1px 2px rgba(0,0,0,0.3); /* Ensure readability in both modes */
-}
-h1, h2, h3 {
-    color: var(--text-color) !important;
+    color: #00ff64 !important;
     font-weight: 400;
+    text-shadow: 0px 0px 8px rgba(0, 255, 100, 0.4);
+    letter-spacing: 0.5px;
+}
+
+h1, h2, h3 {
+    color: #ffffff !important;
+    font-weight: 600;
     letter-spacing: 1px;
 }
-.metric-container {
-    display: flex;
-    justify-content: space-between;
+
+/* Metric Cards */
+div[data-testid="metric-container"] {
+    background: rgba(15, 12, 29, 0.6);
+    border: 1px solid rgba(157, 78, 221, 0.2);
+    border-left: 4px solid #9d4edd;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
 }
+div[data-testid="metric-container"]:hover {
+    border-left: 4px solid #00f3ff;
+    box-shadow: 0 4px 20px rgba(0, 243, 255, 0.2);
+    transform: scale(1.02);
+}
+div[data-testid="metric-container"] label {
+    color: #a0aec0 !important;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+    color: #ffffff !important;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+/* Tabs */
 .stTabs [data-baseweb="tab-list"] {
     gap: 16px;
-    background-color: var(--secondary-background-color);
+    background-color: rgba(10, 10, 25, 0.7);
     border-radius: 12px;
-    padding: 8px;
+    padding: 10px;
+    border: 1px solid rgba(0, 243, 255, 0.1);
 }
 .stTabs [data-baseweb="tab"] {
     height: 50px;
@@ -66,45 +136,95 @@ h1, h2, h3 {
     background-color: transparent;
     border-radius: 8px;
     gap: 1px;
-    padding: 10px 20px;
-    transition: background-color 0.3s;
+    padding: 10px 24px;
+    transition: all 0.3s;
+    color: #8b9eb5;
+    font-weight: 600;
+    letter-spacing: 1px;
 }
 .stTabs [data-baseweb="tab"]:hover {
-    background-color: var(--secondary-background-color);
-    border: 1px solid var(--primary-color);
+    color: #00f3ff;
+    background: rgba(0, 243, 255, 0.05);
 }
 .stTabs [aria-selected="true"] {
-    background-color: var(--primary-color) !important;
-    color: var(--background-color) !important;
+    background: linear-gradient(90deg, #9d4edd 0%, #00f3ff 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+    border: none;
 }
 
 /* Prediction Blink Animation */
-@keyframes flash-fade {
-    0% { opacity: 0; transform: scale(0.95); box-shadow: 0 0 0px transparent; }
-    20% { opacity: 1; transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.5); }
-    100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0px transparent; }
+@keyframes neon-pulse {
+    0% { opacity: 0.8; box-shadow: 0 0 10px currentColor; }
+    50% { opacity: 1; box-shadow: 0 0 25px currentColor, 0 0 40px currentColor; }
+    100% { opacity: 0.8; box-shadow: 0 0 10px currentColor; }
 }
 .prediction-blink {
-    animation: flash-fade 2s ease-out 1;
+    animation: neon-pulse 2s infinite alternate;
     border-radius: 8px;
-    padding: 15px;
+    padding: 20px;
     margin-bottom: 25px;
-    font-size: 1.2em;
-    font-weight: bold;
+    font-size: 1.4em;
+    font-weight: 700;
     text-align: center;
-    border: 1px solid rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    position: relative;
+    overflow: hidden;
+}
+.prediction-blink::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 20%; height: 100%;
+    background: rgba(255,255,255,0.2);
+    transform: skewX(-20deg);
+    animation: shine 4s infinite;
+}
+@keyframes shine {
+    0% { left: -100%; }
+    20% { left: 200%; }
+    100% { left: 200%; }
 }
 .bullish-blink {
-    background: linear-gradient(90deg, rgba(0,255,100,0.1) 0%, rgba(0,255,100,0.3) 50%, rgba(0,255,100,0.1) 100%);
+    background: rgba(0, 255, 100, 0.1);
     color: #00ff64;
-    border-color: #00ff64;
-    text-shadow: 0 0 10px rgba(0,255,100,0.5);
+    border: 1px solid #00ff64;
 }
 .bearish-blink {
-    background: linear-gradient(90deg, rgba(255,0,50,0.1) 0%, rgba(255,0,50,0.3) 50%, rgba(255,0,50,0.1) 100%);
+    background: rgba(255, 0, 50, 0.1);
     color: #ff0032;
-    border-color: #ff0032;
-    text-shadow: 0 0 10px rgba(255,0,50,0.5);
+    border: 1px solid #ff0032;
+}
+
+/* Sidebar overrides */
+[data-testid="stSidebar"] {
+    background: rgba(5, 1, 13, 0.95) !important;
+    border-right: 1px solid rgba(157, 78, 221, 0.3);
+}
+
+/* Buttons */
+.stButton > button {
+    background: linear-gradient(90deg, #9d4edd 0%, #00f3ff 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    letter-spacing: 1px !important;
+    transition: all 0.3s ease !important;
+    text-transform: uppercase;
+}
+.stButton > button:hover {
+    box-shadow: 0 0 20px rgba(0, 243, 255, 0.6) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Dataframe styling */
+[data-testid="stDataFrame"] {
+    background: rgba(15, 12, 29, 0.6);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 243, 255, 0.15);
+    padding: 10px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -131,6 +251,7 @@ def connect_modal():
 col_title, col_wallet = st.columns([4, 1])
 with col_title:
     st.title("🌌 Trend Analysis AI Terminal")
+    st.error("Warning: This is only for Educational Purpose, NFA | DYOR")
 with col_wallet:
     st.write("") # Padding
     if not st.session_state.connected:
@@ -204,6 +325,23 @@ def fetch_and_process_daily_data(t):
     df.dropna(inplace=True)
     return df
 
+@st.cache_data(ttl=3600)
+def fetch_sentiment(t):
+    try:
+        ticker_obj = yf.Ticker(t)
+        news = ticker_obj.news
+        if not news: return 0.0
+        analyzer = SentimentIntensityAnalyzer()
+        compound_scores = []
+        for n in news[:10]: # Top 10 news
+            if 'title' in n:
+                score = analyzer.polarity_scores(n['title'])['compound']
+                compound_scores.append(score)
+        if len(compound_scores) == 0: return 0.0
+        return float(np.mean(compound_scores))
+    except Exception:
+        return 0.0
+
 # DATA PIPELINE EXECUTION
 with st.spinner("Synthesizing market data streams..."):
     intraday_data = fetch_intraday_data(ticker)
@@ -242,48 +380,72 @@ X_train = X[:-1]
 y_train = y[:-1]
 latest_data = X.iloc[[-1]]
 
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+# Train XGBoost Model
+xgb_model = XGBClassifier(n_estimators=100, learning_rate=0.05, max_depth=5, random_state=42)
+xgb_model.fit(X_train, y_train)
 
-# Predict for the next trading day
-prediction = model.predict(latest_data)[0]
-prediction_prob = model.predict_proba(latest_data)[0][prediction]
+# Train Random Forest Model
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+
+# Predict for the next trading day (Ensemble)
+xgb_prob = xgb_model.predict_proba(latest_data)[0]
+rf_prob = rf_model.predict_proba(latest_data)[0]
+ensemble_prob = (xgb_prob + rf_prob) / 2
+prediction = 1 if ensemble_prob[1] > 0.5 else 0
+prediction_prob = ensemble_prob[prediction]
+
+# Fetch Sentiment
+with st.spinner("Analyzing NLP sentiment..."):
+    sentiment_score = fetch_sentiment(ticker)
 
 # TABS LAYOUT
-tab1, tab2, tab3 = st.tabs(["📡 Real-Time Terminal", "🔮 AI Prediction Engine", "📊 Technical Data"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📡 Real-Time Terminal", "🔮 AI Prediction Engine", "📊 Technical Data", "📈 Backtest Engine", "🔍 Market Screener"])
 
 with tab1:
-    st.markdown("### 📡 Live Intraday Market Stream (15m Interval)")
-    if not intraday_data.empty:
-        # Complex Plotly Chart with Volume Subplot
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
-                            vertical_spacing=0.03, subplot_titles=(f'{selected_asset_name} Price Action', 'Volume'), 
-                            row_width=[0.2, 0.7])
-
-        # Candlestick
-        fig.add_trace(go.Candlestick(x=intraday_data.index,
-                        open=intraday_data['Open'].squeeze(),
-                        high=intraday_data['High'].squeeze(),
-                        low=intraday_data['Low'].squeeze(),
-                        close=intraday_data['Close'].squeeze(),
-                        name='Price'), row=1, col=1)
-        
-        # Volume
-        colors = ['red' if row['Open'].squeeze() - row['Close'].squeeze() >= 0 else 'green' for index, row in intraday_data.iterrows()]
-        fig.add_trace(go.Bar(x=intraday_data.index, y=intraday_data['Volume'].squeeze(), marker_color=colors, name='Volume'), row=2, col=1)
-
-        fig.update_layout(
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            height=700,
-            dragmode='pan',
-            xaxis_rangeslider_visible=True,
-            margin=dict(l=10, r=10, t=30, b=10)
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Intraday data is not available for this asset. Please view the Daily ML data in Tab 3.")
+    st.markdown("### 📡 Trading Terminal")
+    
+    # Helper to map our tickers to TradingView expected symbols
+    tv_symbol = ticker
+    if asset_class == "Crypto":
+        tv_symbol = ticker.replace("-", "") # e.g. BTC-USD -> BTCUSD
+    elif asset_class == "Commodities":
+        tv_mapping = {"Gold": "GOLD", "Silver": "SILVER", "Crude Oil": "USOIL", "Platinum": "PLATINUM", "Copper": "COPPER", "Natural Gas": "NATGAS"}
+        tv_symbol = tv_mapping.get(selected_asset_name, ticker)
+    
+    tradingview_html = f"""
+    <!-- TradingView Widget BEGIN -->
+    <div class="tradingview-widget-container" style="height:700px;width:100%">
+      <div id="tradingview_12345" style="height:100%;width:100%"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget(
+      {{
+      "autosize": true,
+      "symbol": "{tv_symbol}",
+      "interval": "15",
+      "timezone": "Etc/UTC",
+      "theme": "dark",
+      "style": "1",
+      "locale": "en",
+      "enable_publishing": false,
+      "backgroundColor": "rgba(10, 10, 25, 1)",
+      "gridColor": "rgba(255, 255, 255, 0.05)",
+      "hide_top_toolbar": false,
+      "hide_legend": false,
+      "hide_side_toolbar": false,
+      "allow_symbol_change": true,
+      "save_image": false,
+      "container_id": "tradingview_12345",
+      "toolbar_bg": "rgba(10, 10, 25, 1)"
+    }}
+      );
+      </script>
+    </div>
+    <!-- TradingView Widget END -->
+    """
+    import streamlit.components.v1 as components
+    components.html(tradingview_html, height=700)
 
 with tab2:
     st.markdown("### 🔮 Trend Analysis AI Terminal")
@@ -292,7 +454,7 @@ with tab2:
     with col2a:
         st.markdown("""
         <div class="glass-card">
-            <h3>Neural Network Output</h3>
+            <h3>Agent Output(Prediction) [Not a Financial Advice]</h3>
         </div>
         """, unsafe_allow_html=True)
         
@@ -378,6 +540,14 @@ with tab2:
             narrative += f"► **High Confluence Rating**: The model exhibits strong confidence ({prediction_prob*100:.1f}%) in this directional move.<br>"
         else:
             narrative += f"► **Low Confluence Rating**: The model exhibits marginal confidence ({prediction_prob*100:.1f}%), suggesting a potential ranging market or mixed signals.<br>"
+            
+        # 6. Sentiment Analysis
+        if sentiment_score > 0.2:
+            narrative += f"► **NLP Sentiment ({sentiment_score:.2f})**: Positive news flow detected, acting as a tailwind.<br>"
+        elif sentiment_score < -0.2:
+            narrative += f"► **NLP Sentiment ({sentiment_score:.2f})**: Negative news flow detected, acting as a headwind.<br>"
+        else:
+            narrative += f"► **NLP Sentiment ({sentiment_score:.2f})**: News sentiment is currently neutral.<br>"
 
         st.markdown(f"""
         <div class="glass-card">
@@ -388,13 +558,16 @@ with tab2:
 
     with col2b:
         st.markdown("### 🧠 Feature Importance Weighting")
-        importance_values = model.feature_importances_
+        importance_values = (xgb_model.feature_importances_ + rf_model.feature_importances_) / 2
 
         fig_imp = go.Figure(go.Bar(
                     x=importance_values,
                     y=selected_features,
                     orientation='h',
-                    marker=dict(color='rgba(0, 200, 255, 0.7)', line=dict(color='rgba(0, 200, 255, 1.0)', width=1))
+                    marker=dict(
+                        color='rgba(157, 78, 221, 0.7)', 
+                        line=dict(color='#00f3ff', width=1)
+                    )
                 ))
 
         fig_imp.update_layout(
@@ -403,7 +576,10 @@ with tab2:
             plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=20, r=20, t=20, b=20),
             xaxis_title="Significance Score",
-            yaxis_title="Feature Vector"
+            yaxis_title="Feature Vector",
+            font=dict(family="Outfit", color="#a0aec0"),
+            xaxis=dict(gridcolor="rgba(0, 243, 255, 0.1)"),
+            yaxis=dict(gridcolor="rgba(0, 243, 255, 0.1)")
         )
         st.plotly_chart(fig_imp, use_container_width=True)
 
@@ -422,3 +598,90 @@ with tab3:
     if isinstance(hist_data.columns, pd.MultiIndex):
         hist_data.columns = hist_data.columns.get_level_values(0)
     st.dataframe(hist_data, use_container_width=True)
+
+with tab4:
+    st.markdown("### 📈 Historical Backtesting Engine")
+    st.write("This engine simulates trading the asset based on the XGBoost and Random Forest Ensemble predictions over the fetched period.")
+    st.write("This is only a Prediction and Backtest data visualization, not a trading signal.")
+    with st.spinner("Running historical backtest..."):
+        # Calculate strategy returns
+        xgb_preds = xgb_model.predict_proba(X)
+        rf_preds = rf_model.predict_proba(X)
+        ensemble_preds = (xgb_preds + rf_preds) / 2
+        historical_preds = (ensemble_preds[:, 1] > 0.5).astype(int)
+        
+        backtest_df = daily_data.copy()
+        backtest_df['Prediction'] = historical_preds
+        backtest_df['Market_Return'] = backtest_df['Close'].pct_change()
+        # Strategy Return: if pred is 1 (Bullish), we get market return next day.
+        backtest_df['Strategy_Return'] = backtest_df['Market_Return'] * backtest_df['Prediction'].shift(1)
+        
+        backtest_df.dropna(inplace=True)
+        backtest_df['Cumulative_Market'] = (1 + backtest_df['Market_Return']).cumprod()
+        backtest_df['Cumulative_Strategy'] = (1 + backtest_df['Strategy_Return']).cumprod()
+        
+        # Plot
+        fig_bt = go.Figure()
+        fig_bt.add_trace(go.Scatter(x=backtest_df.index, y=backtest_df['Cumulative_Market'], mode='lines', name='Buy & Hold (Market)', line=dict(color='#a0aec0')))
+        fig_bt.add_trace(go.Scatter(x=backtest_df.index, y=backtest_df['Cumulative_Strategy'], mode='lines', name='AI Strategy', line=dict(color='#00f3ff')))
+        
+        fig_bt.update_layout(
+            template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(family="Outfit", color="#a0aec0"), margin=dict(l=20, r=20, t=40, b=20),
+            xaxis=dict(gridcolor="rgba(255,255,255,0.05)"), yaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
+            title="Cumulative Return: AI Strategy vs Buy & Hold"
+        )
+        st.plotly_chart(fig_bt, use_container_width=True)
+        
+        total_market = (backtest_df['Cumulative_Market'].iloc[-1] - 1) * 100
+        total_strategy = (backtest_df['Cumulative_Strategy'].iloc[-1] - 1) * 100
+        col_bt1, col_bt2 = st.columns(2)
+        col_bt1.metric("Market Return (Buy & Hold)", f"{total_market:.2f}%")
+        col_bt2.metric("Strategy Return (Ensemble)", f"{total_strategy:.2f}%")
+
+with tab5:
+    st.markdown("### 🔍 Market Screener (Top 5 Watchlist)")
+    st.write(f"Scanning the top assets in the {asset_class} class for immediate trade setups...")
+    
+    screener_assets = list(tickers[asset_class].items())[:5]
+    
+    if st.button("Run AI Screener"):
+        screener_results = []
+        progress_bar = st.progress(0)
+        
+        for i, (name, sym) in enumerate(screener_assets):
+            with st.spinner(f"Analyzing {name} ({sym})..."):
+                d_df = fetch_and_process_daily_data(sym)
+                if d_df is not None and not d_df.empty:
+                    s_X = d_df[selected_features]
+                    s_y = d_df['Target']
+                    s_train_X, s_train_y = s_X[:-1], s_y[:-1]
+                    s_latest = s_X.iloc[[-1]]
+                    
+                    s_xgb = XGBClassifier(n_estimators=50, learning_rate=0.1, max_depth=3, random_state=42)
+                    s_xgb.fit(s_train_X, s_train_y)
+                    s_rf = RandomForestClassifier(n_estimators=50, random_state=42)
+                    s_rf.fit(s_train_X, s_train_y)
+                    
+                    s_xgb_prob = s_xgb.predict_proba(s_latest)[0]
+                    s_rf_prob = s_rf.predict_proba(s_latest)[0]
+                    s_ensemble_prob = (s_xgb_prob + s_rf_prob) / 2
+                    s_pred = 1 if s_ensemble_prob[1] > 0.5 else 0
+                    s_prob = s_ensemble_prob[s_pred]
+                    s_sent = fetch_sentiment(sym)
+                    
+                    signal = "Bullish 🚀" if s_pred == 1 else "Bearish 🩸"
+                    screener_results.append({
+                        "Asset": name,
+                        "Ticker": sym,
+                        "AI Signal": signal,
+                        "Confidence": f"{s_prob*100:.1f}%",
+                        "News Sentiment": f"{s_sent:.2f}"
+                    })
+            progress_bar.progress((i + 1) / len(screener_assets))
+            
+        if screener_results:
+            screener_df = pd.DataFrame(screener_results)
+            st.dataframe(screener_df, use_container_width=True)
+        else:
+            st.error("Failed to fetch data for the screener.")
