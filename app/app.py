@@ -17,47 +17,94 @@ st.set_page_config(
 # CUSTOM CSS: LIQUID GLASS THEME
 st.markdown("""
 <style>
-/* Background Gradient */
+/* Base / Common CSS - Let Streamlit handle the background natively */
 .stApp {
-    background: radial-gradient(circle at 10% 20%, rgb(0, 0, 0) 0%, rgb(20, 20, 30) 90%);
-    color: #e0e0e0;
+    background: transparent;
 }
-/* Glassmorphism Cards */
 .glass-card {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    background: var(--secondary-background-color);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--primary-color);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     margin-bottom: 20px;
-    color: #ffffff;
+    transition: all 0.3s ease-in-out;
+}
+.glass-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    border: 1px solid var(--text-color);
+    opacity: 0.95;
 }
 .glass-card h1, .glass-card h2, .glass-card h3, .glass-card p {
-    color: #ffffff !important;
+    color: var(--text-color) !important;
 }
-/* Main Titles */
+.glass-card p.synthesis-text {
+    color: #10b981 !important; /* Vibrant emerald/light green */
+    font-weight: 600;
+    text-shadow: 0px 1px 2px rgba(0,0,0,0.3); /* Ensure readability in both modes */
+}
 h1, h2, h3 {
-    color: #ffffff;
-    font-weight: 300;
+    color: var(--text-color) !important;
+    font-weight: 400;
+    letter-spacing: 1px;
 }
 .metric-container {
     display: flex;
     justify-content: space-between;
 }
-/* Tab styling */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 24px;
+    gap: 16px;
+    background-color: var(--secondary-background-color);
+    border-radius: 12px;
+    padding: 8px;
 }
 .stTabs [data-baseweb="tab"] {
     height: 50px;
     white-space: pre-wrap;
     background-color: transparent;
-    border-radius: 4px 4px 0px 0px;
+    border-radius: 8px;
     gap: 1px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    padding: 10px 20px;
+    transition: background-color 0.3s;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: var(--secondary-background-color);
+    border: 1px solid var(--primary-color);
+}
+.stTabs [aria-selected="true"] {
+    background-color: var(--primary-color) !important;
+    color: var(--background-color) !important;
+}
+
+/* Prediction Blink Animation */
+@keyframes flash-fade {
+    0% { opacity: 0; transform: scale(0.95); box-shadow: 0 0 0px transparent; }
+    20% { opacity: 1; transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.5); }
+    100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0px transparent; }
+}
+.prediction-blink {
+    animation: flash-fade 2s ease-out 1;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 25px;
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+.bullish-blink {
+    background: linear-gradient(90deg, rgba(0,255,100,0.1) 0%, rgba(0,255,100,0.3) 50%, rgba(0,255,100,0.1) 100%);
+    color: #00ff64;
+    border-color: #00ff64;
+    text-shadow: 0 0 10px rgba(0,255,100,0.5);
+}
+.bearish-blink {
+    background: linear-gradient(90deg, rgba(255,0,50,0.1) 0%, rgba(255,0,50,0.3) 50%, rgba(255,0,50,0.1) 100%);
+    color: #ff0032;
+    border-color: #ff0032;
+    text-shadow: 0 0 10px rgba(255,0,50,0.5);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -95,14 +142,13 @@ with col_wallet:
 # SIDEBAR INPUTS
 st.sidebar.markdown("## ⚙️ Terminal Config")
 
-# Categorized Asset Selection
-asset_class = st.sidebar.selectbox("Asset Class", ["Crypto", "Metals", "Stocks"])
-
 tickers = {
-    "Crypto": {"Bitcoin": "BTC-USD", "Ethereum": "ETH-USD", "Solana": "SOL-USD", "Ripple": "XRP-USD"},
-    "Metals": {"Gold": "GC=F", "Silver": "SI=F", "Crude Oil": "CL=F"},
-    "Stocks": {"Apple": "AAPL", "Microsoft": "MSFT", "Nvidia": "NVDA", "Tesla": "TSLA", "S&P 500": "SPY", "Nasdaq": "QQQ"}
+    "Crypto": {"Bitcoin": "BTC-USD", "Ethereum": "ETH-USD", "Solana": "SOL-USD", "Ripple": "XRP-USD", "Cardano": "ADA-USD", "Dogecoin": "DOGE-USD", "Polkadot": "DOT-USD", "Polygon": "MATIC-USD"},
+    "Commodities": {"Gold": "GC=F", "Silver": "SI=F", "Crude Oil": "CL=F", "Platinum": "PL=F", "Copper": "HG=F", "Natural Gas": "NG=F"},
+    "Equities": {"Apple": "AAPL", "Microsoft": "MSFT", "Nvidia": "NVDA", "Tesla": "TSLA", "Amazon": "AMZN", "Alphabet": "GOOGL", "Meta": "META", "Netflix": "NFLX", "JPMorgan": "JPM", "Visa": "V", "Walmart": "WMT", "S&P 500": "SPY", "Nasdaq": "QQQ", "Dow Jones": "DIA"}
 }
+
+asset_class = st.sidebar.selectbox("Asset Class", list(tickers.keys()))
 
 selected_asset_name = st.sidebar.selectbox("Select Asset", list(tickers[asset_class].keys()))
 ticker = tickers[asset_class][selected_asset_name]
@@ -222,16 +268,6 @@ with tab1:
                         close=intraday_data['Close'].squeeze(),
                         name='Price'), row=1, col=1)
         
-        # Calculate Bollinger Bands on intraday
-        window = 20
-        rolling_mean = intraday_data['Close'].squeeze().rolling(window=window).mean()
-        rolling_std = intraday_data['Close'].squeeze().rolling(window=window).std()
-        upper_band = rolling_mean + (rolling_std * 2)
-        lower_band = rolling_mean - (rolling_std * 2)
-
-        fig.add_trace(go.Scatter(x=intraday_data.index, y=upper_band, line=dict(color='rgba(255,255,255,0.2)', width=1), name='Upper BB'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=intraday_data.index, y=lower_band, line=dict(color='rgba(255,255,255,0.2)', width=1), fill='tonexty', fillcolor='rgba(255,255,255,0.05)', name='Lower BB'), row=1, col=1)
-
         # Volume
         colors = ['red' if row['Open'].squeeze() - row['Close'].squeeze() >= 0 else 'green' for index, row in intraday_data.iterrows()]
         fig.add_trace(go.Bar(x=intraday_data.index, y=intraday_data['Volume'].squeeze(), marker_color=colors, name='Volume'), row=2, col=1)
@@ -241,7 +277,8 @@ with tab1:
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             height=700,
-            xaxis_rangeslider_visible=False,
+            dragmode='pan',
+            xaxis_rangeslider_visible=True,
             margin=dict(l=10, r=10, t=30, b=10)
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -260,13 +297,56 @@ with tab2:
         """, unsafe_allow_html=True)
         
         if prediction == 1:
-            st.success(f"🚀 STRONG BULLISH TREND DETECTED ({prediction_prob*100:.2f}% Confidence)")
+            st.markdown(f'<div class="prediction-blink bullish-blink">🚀 STRONG BULLISH TREND DETECTED ({prediction_prob*100:.2f}% Confidence)</div>', unsafe_allow_html=True)
         else:
-            st.error(f"🩸 BEARISH DOWNTREND DETECTED ({prediction_prob*100:.2f}% Confidence)")
+            st.markdown(f'<div class="prediction-blink bearish-blink">🩸 BEARISH DOWNTREND DETECTED ({prediction_prob*100:.2f}% Confidence)</div>', unsafe_allow_html=True)
             
         # Narrative Logic
         narrative = f"The Deep Learning architecture has synthesized the provided data vectors and forecasts a **{'Bullish' if prediction == 1 else 'Bearish'}** trajectory.<br><br>"
         
+        # 1. Macro Market Conditions (Liquidity & Volatility)
+        narrative += f"► **Macro Market Conditions**: "
+        recent_vol = daily_data['Volume'].iloc[-14:].mean()
+        current_vol = daily_data['Volume'].iloc[-1]
+        
+        recent_tr = (daily_data['High'] - daily_data['Low']).iloc[-14:].mean()
+        current_tr = (daily_data['High'].iloc[-1] - daily_data['Low'].iloc[-1])
+        
+        # Handle multi-index/series if present from yfinance
+        if isinstance(current_vol, pd.Series): current_vol = current_vol.iloc[0]
+        if isinstance(recent_vol, pd.Series): recent_vol = recent_vol.iloc[0]
+        if isinstance(current_tr, pd.Series): current_tr = current_tr.iloc[0]
+        if isinstance(recent_tr, pd.Series): recent_tr = recent_tr.iloc[0]
+
+        if current_vol > recent_vol * 1.2:
+            narrative += "High institutional liquidity with above-average volume. "
+        elif current_vol < recent_vol * 0.8:
+            narrative += "Low liquidity environment (below-average volume). "
+        else:
+            narrative += "Standard market liquidity. "
+            
+        if current_tr > recent_tr * 1.2:
+            narrative += "Volatility is expanding, signaling a strong directional push.<br>"
+        elif current_tr < recent_tr * 0.8:
+            narrative += "Volatility is compressing, signaling a ranging market or impending breakout.<br>"
+        else:
+            narrative += "Volatility remains stable within expected ranges.<br>"
+            
+        # 2. Price Action Structure
+        if 'Close' in latest_data.columns and 'Open' in latest_data.columns:
+            close_p = latest_data['Close'].values[0]
+            open_p = latest_data['Open'].values[0]
+            if close_p > open_p:
+                narrative += f"► **Price Action Structure**: The latest session closed above its open, establishing a base of buyer support.<br>"
+            else:
+                narrative += f"► **Price Action Structure**: The latest session saw distribution, closing below the open and reflecting seller dominance.<br>"
+        else:
+            if prediction == 1:
+                narrative += f"► **Price Action Structure**: The model detects underlying accumulation patterns in recent price movements.<br>"
+            else:
+                narrative += f"► **Price Action Structure**: The model detects structural distribution and weakness in recent price movements.<br>"
+
+        # 2. RSI
         if 'RSI' in latest_data.columns:
             rsi = latest_data['RSI'].values[0]
             if rsi > 70:
@@ -276,6 +356,7 @@ with tab2:
             else:
                 narrative += f"► **RSI Equilibrium ({rsi:.1f})**: Momentum oscillators are currently neutral.<br>"
                 
+        # 3. EMA
         if 'EMA_9' in latest_data.columns and 'EMA_15' in latest_data.columns:
             ema_9 = latest_data['EMA_9'].values[0]
             ema_15 = latest_data['EMA_15'].values[0]
@@ -284,10 +365,24 @@ with tab2:
             else:
                 narrative += f"► **Moving Average Divergence**: Short-term velocity (EMA 9) has failed to breach long-term resistance (EMA 15).<br>"
 
+        # 4. MACD
+        if 'MACD' in latest_data.columns:
+            macd = latest_data['MACD'].values[0]
+            if macd > 0:
+                narrative += f"► **MACD Momentum ({macd:.2f})**: The MACD histogram is positive, indicating underlying bullish momentum.<br>"
+            else:
+                narrative += f"► **MACD Momentum ({macd:.2f})**: The MACD histogram is negative, indicating underlying bearish pressure.<br>"
+                
+        # 5. Confidence Confluence
+        if prediction_prob > 0.65:
+            narrative += f"► **High Confluence Rating**: The model exhibits strong confidence ({prediction_prob*100:.1f}%) in this directional move.<br>"
+        else:
+            narrative += f"► **Low Confluence Rating**: The model exhibits marginal confidence ({prediction_prob*100:.1f}%), suggesting a potential ranging market or mixed signals.<br>"
+
         st.markdown(f"""
         <div class="glass-card">
             <h3>🤖 AI Market Synthesis</h3>
-            <p style="font-size: 1.1em; line-height: 1.7; font-family: monospace;">{narrative}</p>
+            <p class="synthesis-text" style="font-size: 1.1em; line-height: 1.7; font-family: monospace;">{narrative}</p>
         </div>
         """, unsafe_allow_html=True)
 
